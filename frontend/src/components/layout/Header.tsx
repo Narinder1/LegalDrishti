@@ -16,7 +16,7 @@ export function Header() {
             </div>
             <div>
               <span className="font-bold text-xl text-gray-900">{siteConfig.name}</span>
-              <p className="text-xs text-gray-500">{siteConfig.tagline}</p>
+        
             </div>
           </Link>
 
@@ -28,9 +28,6 @@ export function Header() {
                 href={link.href}
                 className="text-gray-600 hover:text-primary-600 transition-colors flex items-center gap-1"
               >
-                {link.label === 'Find Experts' && <Search className="w-4 h-4" />}
-                {link.label === 'Resources' && <span className="text-sm">📚</span>}
-                {link.label === 'Join as Expert' && <Users className="w-4 h-4" />}
                 {link.label}
               </Link>
             ))}
@@ -40,17 +37,10 @@ export function Header() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 transition-colors"
-            >
-              <span>→</span>
-              Login
-            </Link>
-            <Link
-              href="/register"
               className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <Users className="w-4 h-4" />
-              Register
+              Login
             </Link>
           </div>
         </div>

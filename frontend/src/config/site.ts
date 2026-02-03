@@ -26,12 +26,8 @@ export const siteConfig = {
     { label: "Join as Expert", href: "/join-expert" },
   ],
   
-  // Footer
-  footer: {
-    copyright: `© ${new Date().getFullYear()} ${this?.name || 'LegalDrishti'} Legal Network. All rights reserved.`,
-  },
 }
 
 // Helper to get copyright with current year
 export const getCopyright = () => 
-  `© ${new Date().getFullYear()} ${siteConfig.name} Legal Network. All rights reserved.`
+  `© ${new Date().getFullYear()} ${siteConfig.name}. All rights reserved.`
