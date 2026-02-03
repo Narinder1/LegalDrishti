@@ -6,7 +6,7 @@ export const siteConfig = {
   
   // Contact Information
   contact: {
-    phone: "1800-XXX-XXXX",
+    phone: "1800-000-0011",
     email: "help@legaldrishti.legal",
   },
   
@@ -20,9 +20,9 @@ export const siteConfig = {
   // Navigation Links
   navLinks: [
     { label: "Home", href: "/" },
-    { label: "Find Experts", href: "/find-experts" },
     { label: "About", href: "/about" },
     { label: "Resources", href: "/resources" },
+    { label: "Find Experts", href: "/find-experts" },
     { label: "Join as Expert", href: "/join-expert" },
   ],
   
