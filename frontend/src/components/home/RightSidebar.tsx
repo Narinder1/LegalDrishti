@@ -1,15 +1,8 @@
 'use client'
 
-import { Bot, Send, BookOpen, Phone, Mail, MessageCircle, HelpCircle, PlayCircle, FileQuestion, Headphones } from 'lucide-react'
+import { BookOpen, Phone, Mail, MessageCircle, PlayCircle, FileQuestion, Headphones } from 'lucide-react'
 import { siteConfig } from '@/config'
-
-// Quick Actions
-const quickActions = [
-  'Search for corporate lawyers',
-  'File a case online',
-  'Get legal advice',
-  'Find templates',
-]
+import { LegalAssistant } from './LegalAssistant'
 
 // Quick Resources
 const quickResources = [
@@ -31,42 +24,8 @@ const learnMore = [
 export function RightSidebar() {
   return (
     <div className="space-y-4">
-      {/* Legal Assistant */}
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-            <Bot className="w-5 h-5 text-primary-600" />
-          </div>
-          <h2 className="font-semibold text-gray-900">Legal Assistant</h2>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mb-4">
-          <p className="text-xs font-medium text-gray-500 uppercase mb-2">Quick Actions:</p>
-          <ul className="space-y-1">
-            {quickActions.map((action, index) => (
-              <li key={index}>
-                <button className="text-sm text-gray-600 hover:text-primary-600 transition-colors text-left">
-                  • {action}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Chat Input */}
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Ask me anything..."
-            className="w-full px-3 py-2 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
-          <button className="absolute right-2 top-1/2 -translate-y-1/2 text-primary-600 hover:text-primary-700">
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 mt-2 text-center">Powered by AI • Your data is secure</p>
-      </div>
+      {/* Legal Assistant - AI Chatbot */}
+      <LegalAssistant />
 
       {/* Quick Resources */}
       <div className="bg-white rounded-xl p-4 shadow-sm">
