@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { BookOpen, Phone, Mail, MessageCircle, PlayCircle, FileQuestion, Headphones } from 'lucide-react'
 import { siteConfig } from '@/config'
 import { LegalAssistant } from './LegalAssistant'
@@ -21,7 +22,7 @@ const learnMore = [
   { id: 4, name: 'Contact support', href: '/support', icon: Headphones },
 ]
 
-export function RightSidebar() {
+export const RightSidebar = memo(function RightSidebar() {
   return (
     <div className="space-y-4">
       {/* Legal Assistant - AI Chatbot */}
@@ -91,4 +92,6 @@ export function RightSidebar() {
       </div>
     </div>
   )
-}
+})
+
+RightSidebar.displayName = 'RightSidebar'
