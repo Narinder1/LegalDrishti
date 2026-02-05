@@ -9,6 +9,8 @@ from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.v1 import router as api_v1_router
 from app.services.llm_service import get_llm_service
+from app.core.database import init_db, close_db, AsyncSessionLocal
+from app.services.auth_service import auth_service
 
 
 @asynccontextmanager
@@ -22,6 +24,19 @@ async def lifespan(app: FastAPI):
     print(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     print(f"📍 Environment: {settings.ENVIRONMENT}")
     
+    # Initialize Database
+    print("🔄 Initializing database...")
+    try:
+        await init_db()
+        print("✅ Database initialized")
+        
+        # Seed admin user
+        async with AsyncSessionLocal() as db:
+            await auth_service.seed_admin(db)
+    except Exception as e:
+        print(f"⚠️ Database initialization failed: {e}")
+        print("   (App will continue, but auth features may not work)")
+    
     # Initialize LLM service (checks Ollama connection)
     llm = get_llm_service()
     
@@ -32,6 +47,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     print(f"👋 Shutting down {settings.APP_NAME}...")
+    await close_db()
 
 
 # Initialize FastAPI app

@@ -38,14 +38,20 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001"
     
     # ===================
-    # Database (for future use)
+    # Database (PostgreSQL)
     # ===================
-    DATABASE_URL: Optional[str] = None
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/legaldrishti"
+    DATABASE_ECHO: bool = False  # Set to True for SQL query logging
     
     # ===================
     # Redis (for future use - caching, sessions)
     # ===================
     REDIS_URL: Optional[str] = None
+    
+    # ===================
+    # JWT Authentication
+    # ===================
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # ===================
     # Ollama LLM
