@@ -2,8 +2,10 @@
 LegalDrishti Backend - Main FastAPI Application
 Clean, modular structure for scalability
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
@@ -89,6 +91,11 @@ app.add_middleware(
 
 # API v1 routes
 app.include_router(api_v1_router, prefix="/api")
+
+# Serve uploaded files as static files
+uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # Legacy routes for backward compatibility with frontend
 from app.api.v1 import chat as chat_v1
