@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Scissors, FileText, Plus, Trash2, Save, ArrowRight, GripVertical, AlertCircle } from 'lucide-react'
+import { Scissors, FileText, Plus, Trash2, Save, ArrowRight, GripVertical, AlertCircle, CheckCircle, X } from 'lucide-react'
 import { usePipelineStore, Document, DocumentChunk } from '@/store/pipelineStore'
 import { useAuthStore } from '@/store/authStore'
 
@@ -32,6 +32,7 @@ export function ChunkingStep() {
   const [chunks, setChunks] = useState<ChunkData[]>([])
   const [sourceText, setSourceText] = useState('')
   const [autoChunkSize, setAutoChunkSize] = useState(1000)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const {
     documents,
@@ -46,6 +47,7 @@ export function ChunkingStep() {
     isLoading,
     isSaving,
     error,
+    setActiveStep,
   } = usePipelineStore()
   const { tokens } = useAuthStore()
 
@@ -166,8 +168,32 @@ export function ChunkingStep() {
 
     await saveChunks(selectedDoc.id, chunks, tokens.access_token)
     
-    // Refresh documents
-    await fetchDocuments(tokens.access_token, { status: 'text_extracted' })
+    // Advance document to the next step (metadata)
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/pipeline/documents/${selectedDoc.id}/advance-step`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        // Show success toast
+        setSuccessMessage('Successfully sent to the next step!')
+        setTimeout(() => setSuccessMessage(''), 3000)
+
+        // Clear selection and refresh
+        setSelectedDoc(null)
+        setChunks([])
+        setSourceText('')
+        await fetchDocuments(tokens.access_token, { status: 'text_extracted' })
+
+        // Navigate to metadata step
+        setActiveStep('metadata')
+      }
+    } catch (err) {
+      console.error('Failed to advance step:', err)
+    }
   }
 
   // Get documents ready for chunking
@@ -376,6 +402,20 @@ export function ChunkingStep() {
                 <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
                   <AlertCircle size={18} />
                   <span className="text-sm">{error}</span>
+                </div>
+              )}
+
+              {/* Success Toast */}
+              {successMessage && (
+                <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 px-3 py-2 rounded-lg shadow-sm border border-green-100">
+                  <CheckCircle size={18} />
+                  <span className="text-sm">{successMessage}</span>
+                  <button
+                    onClick={() => setSuccessMessage('')}
+                    className="text-green-500 hover:text-green-700"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
               )}
 
