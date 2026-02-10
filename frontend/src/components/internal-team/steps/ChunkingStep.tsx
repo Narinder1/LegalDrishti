@@ -265,13 +265,13 @@ export function ChunkingStep() {
                   </div>
                   <button
                     onClick={handleAutoChunk}
-                    className="px-3 py-1.5 bg-primary-100 text-primary-700 rounded-lg text-sm hover:bg-primary-200"
+                    className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
                   >
                     Auto-Chunk by Size
                   </button>
                   <button
                     onClick={handleChunkByParagraph}
-                    className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                    className="px-3 py-1.5 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
                   >
                     Chunk by Paragraphs
                   </button>
@@ -284,7 +284,7 @@ export function ChunkingStep() {
                   <h3 className="font-semibold text-gray-900">Chunks ({chunks.length})</h3>
                   <button
                     onClick={addChunk}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
                   >
                     <Plus size={16} />
                     Add Chunk
@@ -387,7 +387,7 @@ export function ChunkingStep() {
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium ${
                     isSaving || chunks.length === 0
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-secondary-600 text-white hover:bg-secondary-700'
+                      : 'bg-primary-600 text-white hover:bg-primary-700'
                   }`}
                 >
                   {isSaving ? (
@@ -397,9 +397,8 @@ export function ChunkingStep() {
                     </>
                   ) : (
                     <>
-                      <Save size={18} />
-                      Save Chunks
                       <ArrowRight size={18} />
+                      Proceed to Metadata
                     </>
                   )}
                 </button>
