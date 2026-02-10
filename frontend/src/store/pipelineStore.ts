@@ -400,7 +400,7 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
 
   // Save draft without completing the task
   saveDraftExtractedText: async (documentId, data, token) => {
-    set({ isSaving: true, error: null })
+    set({ error: null })
     try {
       const response = await fetch(`${API_URL}/api/v1/pipeline/documents/${documentId}/extract-draft`, {
         method: 'POST',
@@ -414,9 +414,9 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
       if (!response.ok) throw new Error('Failed to save draft')
       
       const extracted = await response.json()
-      set({ extractedText: extracted, isSaving: false })
+      set({ extractedText: extracted })
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Failed to save draft', isSaving: false })
+      set({ error: error instanceof Error ? error.message : 'Failed to save draft' })
     }
   },
 

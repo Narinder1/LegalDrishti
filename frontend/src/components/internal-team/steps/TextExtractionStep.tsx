@@ -15,9 +15,11 @@ export function TextExtractionStep() {
   const [isExtracting, setIsExtracting] = useState(false)
   const [isCleaning, setIsCleaning] = useState(false)
   const [extractionProgress, setExtractionProgress] = useState(0)
-  const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const [isSavingRawDraft, setIsSavingRawDraft] = useState(false)
+  const [isSavingCleanedDraft, setIsSavingCleanedDraft] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const {
     documents,
@@ -35,6 +37,7 @@ export function TextExtractionStep() {
     isSaving,
     error,
     clearError,
+    setActiveStep,
   } = usePipelineStore()
   const { tokens } = useAuthStore()
 
@@ -68,7 +71,9 @@ export function TextExtractionStep() {
     clearError()
   }
 
-  const handleExtractRawText = async () => {
+  const handleExtractRawText = async (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    e?.preventDefault()
     if (!selectedDoc || !tokens?.access_token) return
     setIsExtracting(true)
     setExtractionProgress(0)
@@ -99,7 +104,9 @@ export function TextExtractionStep() {
     }
   }
 
-  const handleCleanText = async () => {
+  const handleCleanText = async (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    e?.preventDefault()
     if (!selectedDoc || !tokens?.access_token || !rawText) return
     setIsCleaning(true)
     clearError()
@@ -113,9 +120,11 @@ export function TextExtractionStep() {
     }
   }
 
-  const handleSaveDraft = async () => {
+  const handleSaveRawDraft = async (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    e?.preventDefault()
     if (!selectedDoc || !tokens?.access_token || !rawText) return
-    setIsSavingDraft(true)
+    setIsSavingRawDraft(true)
     try {
       await saveDraftExtractedText(
         selectedDoc.id,
@@ -127,11 +136,33 @@ export function TextExtractionStep() {
         tokens.access_token
       )
     } finally {
-      setIsSavingDraft(false)
+      setIsSavingRawDraft(false)
     }
   }
 
-  const handleSaveExtraction = async () => {
+  const handleSaveCleanedDraft = async (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    e?.preventDefault()
+    if (!selectedDoc || !tokens?.access_token || !cleanedText) return
+    setIsSavingCleanedDraft(true)
+    try {
+      await saveDraftExtractedText(
+        selectedDoc.id,
+        {
+          raw_text: rawText,
+          cleaned_text: cleanedText,
+          extraction_method: extractionMethod,
+        },
+        tokens.access_token
+      )
+    } finally {
+      setIsSavingCleanedDraft(false)
+    }
+  }
+
+  const handleSaveExtraction = async (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    e?.preventDefault()
     if (!selectedDoc || !tokens?.access_token || !rawText) return
 
     await saveExtractedText(
@@ -144,8 +175,12 @@ export function TextExtractionStep() {
       tokens.access_token
     )
 
-    // Refresh documents list
-    await fetchDocuments(tokens.access_token, { step: 'text_extraction' })
+    // Show success toast
+    setSuccessMessage('Successfully sent to the next step!')
+    setTimeout(() => setSuccessMessage(''), 3000)
+
+    // Navigate to chunking step
+    setActiveStep('chunking')
   }
 
   // Get documents needing extraction - filter by current_step
@@ -307,6 +342,7 @@ export function TextExtractionStep() {
                     onClick={handleExtractRawText}
                     disabled={isExtracting}
                     className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    type="button"
                   >
                     {isExtracting ? (
                       <>
@@ -323,7 +359,8 @@ export function TextExtractionStep() {
                   <button
                     onClick={handleCleanText}
                     disabled={!rawText || isCleaning}
-                    className="flex items-center gap-2 px-5 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    type="button"
                   >
                     {isCleaning ? (
                       <>
@@ -390,11 +427,12 @@ export function TextExtractionStep() {
                       {rawText.length} characters • {rawText.split(/\s+/).filter(Boolean).length} words
                     </p>
                     <button
-                      onClick={handleSaveDraft}
-                      disabled={!rawText || isSavingDraft}
+                      onClick={handleSaveRawDraft}
+                      disabled={!rawText || isSavingRawDraft}
                       className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="button"
                     >
-                      {isSavingDraft ? (
+                      {isSavingRawDraft ? (
                         <>
                           <Loader2 size={14} className="animate-spin" />
                           Saving...
@@ -416,7 +454,7 @@ export function TextExtractionStep() {
                       Cleaned Text (Optional)
                     </label>
                     {isCleaning && (
-                      <span className="flex items-center gap-1 text-xs text-violet-600">
+                      <span className="flex items-center gap-1 text-xs text-primary-600">
                         <Loader2 size={12} className="animate-spin" />
                         Cleaning text...
                       </span>
@@ -426,7 +464,7 @@ export function TextExtractionStep() {
                     value={cleanedText}
                     onChange={(e) => setCleanedText(e.target.value)}
                     rows={26}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Click 'Clean Text' to auto-clean the extracted text, or type manually..."
                   />
                   <div className="flex items-center justify-between mt-2">
@@ -434,11 +472,12 @@ export function TextExtractionStep() {
                       {cleanedText.length} characters • {cleanedText.split(/\s+/).filter(Boolean).length} words
                     </p>
                     <button
-                      onClick={handleSaveDraft}
-                      disabled={!rawText || isSavingDraft}
-                      className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleSaveCleanedDraft}
+                      disabled={!cleanedText || isSavingCleanedDraft}
+                      className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="button"
                     >
-                      {isSavingDraft ? (
+                      {isSavingCleanedDraft ? (
                         <>
                           <Loader2 size={14} className="animate-spin" />
                           Saving...
@@ -465,6 +504,20 @@ export function TextExtractionStep() {
                 </div>
               )}
 
+              {/* Success Toast */}
+              {successMessage && (
+                <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 px-3 py-2 rounded-lg shadow-sm border border-green-100">
+                  <CheckCircle size={18} />
+                  <span className="text-sm">{successMessage}</span>
+                  <button
+                    onClick={() => setSuccessMessage('')}
+                    className="text-green-500 hover:text-green-700"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+
               {/* Save Action */}
               <div className="flex justify-end gap-3">
                 <button
@@ -473,8 +526,9 @@ export function TextExtractionStep() {
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors ${
                     isSaving || !rawText
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-secondary-600 text-white hover:bg-secondary-700'
+                      : 'bg-primary-600 text-white hover:bg-primary-700'
                   }`}
+                  type="button"
                 >
                   {isSaving ? (
                     <>
@@ -483,9 +537,8 @@ export function TextExtractionStep() {
                     </>
                   ) : (
                     <>
-                      <Save size={18} />
-                      Save & Complete
                       <ArrowRight size={18} />
+                      Proceed to chunking
                     </>
                   )}
                 </button>
