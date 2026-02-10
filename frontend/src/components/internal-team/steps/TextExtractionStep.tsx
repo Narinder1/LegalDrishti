@@ -14,6 +14,8 @@ export function TextExtractionStep() {
   const [showOriginal, setShowOriginal] = useState(true)
   const [isExtracting, setIsExtracting] = useState(false)
   const [isCleaning, setIsCleaning] = useState(false)
+  const [extractionProgress, setExtractionProgress] = useState(0)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
 
@@ -22,6 +24,7 @@ export function TextExtractionStep() {
     fetchDocuments,
     fetchExtractedText,
     saveExtractedText,
+    saveDraftExtractedText,
     extractRawText,
     cleanRawText,
     extractedText,
@@ -37,7 +40,7 @@ export function TextExtractionStep() {
 
   useEffect(() => {
     if (tokens?.access_token) {
-      fetchDocuments(tokens.access_token, { status: 'uploaded' })
+      fetchDocuments(tokens.access_token, { step: 'text_extraction' })
       fetchMyTasks(tokens.access_token)
     }
   }, [tokens, fetchDocuments, fetchMyTasks])
@@ -68,14 +71,31 @@ export function TextExtractionStep() {
   const handleExtractRawText = async () => {
     if (!selectedDoc || !tokens?.access_token) return
     setIsExtracting(true)
+    setExtractionProgress(0)
     clearError()
+    
+    // Simulate progress for better UX
+    const progressInterval = setInterval(() => {
+      setExtractionProgress(prev => {
+        if (prev >= 90) return prev
+        return prev + Math.random() * 15
+      })
+    }, 300)
+    
     try {
       const result = await extractRawText(selectedDoc.id, extractionMethod, tokens.access_token)
       if (result) {
-        setRawText(result.raw_text)
+        setExtractionProgress(100)
+        setTimeout(() => {
+          setRawText(result.raw_text)
+        }, 200)
       }
     } finally {
-      setIsExtracting(false)
+      clearInterval(progressInterval)
+      setTimeout(() => {
+        setIsExtracting(false)
+        setExtractionProgress(0)
+      }, 500)
     }
   }
 
@@ -93,6 +113,24 @@ export function TextExtractionStep() {
     }
   }
 
+  const handleSaveDraft = async () => {
+    if (!selectedDoc || !tokens?.access_token || !rawText) return
+    setIsSavingDraft(true)
+    try {
+      await saveDraftExtractedText(
+        selectedDoc.id,
+        {
+          raw_text: rawText,
+          cleaned_text: cleanedText || undefined,
+          extraction_method: extractionMethod,
+        },
+        tokens.access_token
+      )
+    } finally {
+      setIsSavingDraft(false)
+    }
+  }
+
   const handleSaveExtraction = async () => {
     if (!selectedDoc || !tokens?.access_token || !rawText) return
 
@@ -107,11 +145,11 @@ export function TextExtractionStep() {
     )
 
     // Refresh documents list
-    await fetchDocuments(tokens.access_token, { status: 'uploaded' })
+    await fetchDocuments(tokens.access_token, { step: 'text_extraction' })
   }
 
-  // Get documents needing extraction
-  let pendingDocs = documents.filter(d => d.status === 'uploaded')
+  // Get documents needing extraction - filter by current_step
+  let pendingDocs = documents.filter(d => d.current_step === 'text_extraction')
   
   // Apply search filter
   if (searchQuery.trim()) {
@@ -273,7 +311,7 @@ export function TextExtractionStep() {
                     {isExtracting ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        Extracting...
+                        Extracting... {Math.round(extractionProgress)}%
                       </>
                     ) : (
                       <>
@@ -339,12 +377,6 @@ export function TextExtractionStep() {
                     <label className="block text-sm font-medium text-gray-700">
                       Raw Extracted Text
                     </label>
-                    {isExtracting && (
-                      <span className="flex items-center gap-1 text-xs text-primary-600">
-                        <Loader2 size={12} className="animate-spin" />
-                        Extracting with Docling...
-                      </span>
-                    )}
                   </div>
                   <textarea
                     value={rawText}
@@ -353,9 +385,28 @@ export function TextExtractionStep() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     placeholder="Click 'Extract Raw Text' to extract content from the document..."
                   />
-                  <p className="text-xs text-gray-400 mt-2">
-                    {rawText.length} characters • {rawText.split(/\s+/).filter(Boolean).length} words
-                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-gray-400">
+                      {rawText.length} characters • {rawText.split(/\s+/).filter(Boolean).length} words
+                    </p>
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={!rawText || isSavingDraft}
+                      className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSavingDraft ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save size={14} />
+                          Save Draft
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Cleaned Text */}
@@ -378,9 +429,28 @@ export function TextExtractionStep() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                     placeholder="Click 'Clean Text' to auto-clean the extracted text, or type manually..."
                   />
-                  <p className="text-xs text-gray-400 mt-2">
-                    {cleanedText.length} characters • {cleanedText.split(/\s+/).filter(Boolean).length} words
-                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-gray-400">
+                      {cleanedText.length} characters • {cleanedText.split(/\s+/).filter(Boolean).length} words
+                    </p>
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={!rawText || isSavingDraft}
+                      className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSavingDraft ? (
+                        <>
+                          <Loader2 size={14} className="animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save size={14} />
+                          Save Draft
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 

@@ -198,6 +198,60 @@ async def update_document(
 ):
     """Update document details"""
     service = PipelineService(db)
+
+
+@router.post("/documents/{document_id}/advance-step", response_model=DocumentResponse)
+async def advance_document_step(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_internal_team)
+):
+    """Advance document to next step in pipeline and create task"""
+    service = PipelineService(db)
+    document = await service.get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Map current step to next step
+    step_progression = {
+        PipelineStep.UPLOAD: PipelineStep.TEXT_EXTRACTION,
+        PipelineStep.TEXT_EXTRACTION: PipelineStep.CHUNKING,
+        PipelineStep.CHUNKING: PipelineStep.METADATA,
+        PipelineStep.METADATA: PipelineStep.SUMMARIZATION,
+        PipelineStep.SUMMARIZATION: PipelineStep.QUALITY_ASSURANCE,
+        PipelineStep.QUALITY_ASSURANCE: PipelineStep.PUBLISH,
+    }
+    
+    next_step = step_progression.get(document.current_step)
+    if not next_step:
+        raise HTTPException(status_code=400, detail="Document is already at final step or cannot advance")
+    
+    # Update document step
+    document.current_step = next_step
+    
+    # Create task for next step
+    from app.models.document_pipeline import PipelineTask, TaskStatus
+    next_task = PipelineTask(
+        document_id=document.id,
+        step=next_step,
+        status=TaskStatus.PENDING
+    )
+    db.add(next_task)
+    
+    await db.commit()
+    await db.refresh(document)
+    return document
+
+
+@router.patch("/documents/{document_id}", response_model=DocumentResponse)
+async def update_document_details(
+    document_id: int,
+    update_data: DocumentUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_internal_team)
+):
+    """Update document details"""
+    service = PipelineService(db)
     document = await service.update_document(
         document_id,
         **update_data.model_dump(exclude_unset=True)
@@ -301,6 +355,35 @@ async def extract_text_from_document(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
+
+
+@router.post("/documents/{document_id}/extract-draft", response_model=ExtractedTextResponse)
+async def save_extraction_draft(
+    document_id: int,
+    data: ExtractedTextCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_internal_team)
+):
+    """Save extracted text draft WITHOUT completing the task.
+    Use this to save work in progress so users can come back later."""
+    service = PipelineService(db)
+    
+    # Verify document exists
+    document = await service.get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Save the extracted text but DON'T complete the task
+    extracted = await service.save_extracted_text(
+        document_id=document_id,
+        raw_text=data.raw_text,
+        cleaned_text=data.cleaned_text,
+        extraction_method=data.extraction_method,
+        confidence_score=data.confidence_score,
+        processed_by_id=current_user.id
+    )
+    
+    return extracted
 
 
 @router.post("/documents/{document_id}/clean-text")

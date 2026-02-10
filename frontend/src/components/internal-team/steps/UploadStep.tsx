@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, FileText, X, CheckCircle, AlertCircle, File, Eye, Trash2, ArrowRight, Search } from 'lucide-react'
+import { Upload, FileText, X, CheckCircle, AlertCircle, File, Eye, Trash2, ArrowRight, Search, Info } from 'lucide-react'
 import { usePipelineStore, Document } from '@/store/pipelineStore'
 import { useAuthStore } from '@/store/authStore'
+import { DocumentViewer } from './DocumentViewer'
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -33,8 +34,10 @@ export function UploadStep() {
     priority: 5,
   })
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [uploadedDocId, setUploadedDocId] = useState<number | null>(null)
   const [recentUploads, setRecentUploads] = useState<Document[]>([])
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null)
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null)
   const [deletingDocId, setDeletingDocId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
@@ -49,11 +52,11 @@ export function UploadStep() {
   }, [tokens, fetchDocuments])
 
   useEffect(() => {
-    // Filter and show documents based on search
-    let filtered = documents
+    // Filter and show documents based on search - ONLY show documents at upload step
+    let filtered = documents.filter(doc => doc.current_step === 'upload')
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = documents.filter(doc => 
+      filtered = filtered.filter(doc => 
         doc.title?.toLowerCase().includes(query) ||
         doc.original_filename.toLowerCase().includes(query) ||
         doc.category?.toLowerCase().includes(query) ||
@@ -62,6 +65,17 @@ export function UploadStep() {
     }
     setRecentUploads(filtered.slice(0, 5))
   }, [documents, searchQuery])
+
+  useEffect(() => {
+    if (!uploadSuccess) return
+
+    const timer = setTimeout(() => {
+      setUploadSuccess(false)
+      setUploadedDocId(null)
+    }, 3000)
+
+    return () => clearTimeout(timer)
+  }, [uploadSuccess])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -111,13 +125,14 @@ export function UploadStep() {
     
     if (result) {
       setUploadSuccess(true)
+      setUploadedDocId(result.id)
       setSelectedFile(null)
       setFormData({ title: '', description: '', category: '', priority: 5 })
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      // Refresh documents list
-      await fetchDocuments(tokens.access_token)
+      // Refresh documents list to show at upload step
+      await fetchDocuments(tokens.access_token, { step: 'upload' })
     }
   }
 
@@ -152,12 +167,37 @@ export function UploadStep() {
   }
 
   const handleViewDocument = (doc: Document) => {
+    setPreviewDoc(doc)
+  }
+
+  const handleViewDetails = (doc: Document) => {
     setViewingDoc(doc)
   }
 
   const handleProceedToNextStep = () => {
     // Navigate to Text Extraction step
     setActiveStep('text_extraction')
+  }
+
+  const handleAdvanceToExtraction = async (docId?: number) => {
+    if (!docId || !tokens?.access_token) return
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/pipeline/documents/${docId}/advance-step`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        setUploadSuccess(false)
+        setUploadedDocId(null)
+        await fetchDocuments(tokens.access_token, { step: 'upload' })
+        setActiveStep('text_extraction')
+      }
+    } catch (err) {
+      console.error('Failed to advance step:', err)
+    }
   }
 
   const formatFileSize = (bytes: number) => {
@@ -246,6 +286,23 @@ export function UploadStep() {
             )}
           </div>
 
+            {/* Success message */}
+            {uploadSuccess && (
+              <div className="inline-flex items-center gap-2 text-green-700 bg-green-50 px-3 py-2 rounded-lg shadow-sm border border-green-100">
+                <CheckCircle size={18} />
+                <span className="text-sm">Document uploaded successfully!</span>
+                <button
+                  onClick={() => {
+                    setUploadSuccess(false)
+                    setUploadedDocId(null)
+                  }}
+                  className="text-green-500 hover:text-green-700"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
           {/* Document Details Form */}
           {selectedFile && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
@@ -317,14 +374,6 @@ export function UploadStep() {
                 </div>
               )}
 
-              {/* Success */}
-              {uploadSuccess && (
-                <div className="flex items-center gap-2 text-green-600 bg-green-50 p-3 rounded-lg">
-                  <CheckCircle size={18} />
-                  <span className="text-sm">Document uploaded successfully!</span>
-                </div>
-              )}
-
               {/* Upload Button */}
               <button
                 onClick={handleUpload}
@@ -382,48 +431,65 @@ export function UploadStep() {
           </div>
           <div className="p-4 space-y-3">
             {recentUploads.length > 0 ? (
-              recentUploads.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              <>
+                {recentUploads.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <File className="w-5 h-5 text-primary-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {doc.title || doc.original_filename}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {doc.file_type.toUpperCase()} • {formatFileSize(doc.file_size)}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(doc.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => handleViewDocument(doc)}
+                        className="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="View document"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleViewDetails(doc)}
+                        className="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="View details"
+                      >
+                        <Info size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(doc.id)}
+                        disabled={deletingDocId === doc.id}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete document"
+                      >
+                        {deletingDocId === doc.id ? (
+                          <div className="w-[18px] h-[18px] border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 size={18} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  onClick={() => handleAdvanceToExtraction(uploadedDocId || recentUploads[0]?.id)}
+                  className="w-full py-2.5 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <File className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {doc.title || doc.original_filename}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {doc.file_type.toUpperCase()} • {formatFileSize(doc.file_size)}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {new Date(doc.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => handleViewDocument(doc)}
-                      className="p-1.5 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                      title="View details"
-                    >
-                      <Eye size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(doc.id)}
-                      disabled={deletingDocId === doc.id}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                      title="Delete document"
-                    >
-                      {deletingDocId === doc.id ? (
-                        <div className="w-[18px] h-[18px] border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Trash2 size={18} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ))
+                  Proceed to Text Extraction
+                  <ArrowRight size={18} />
+                </button>
+              </>
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <Upload className="w-8 h-8 mx-auto mb-2 text-gray-300" />
@@ -435,6 +501,32 @@ export function UploadStep() {
       </div>
 
       {/* View Document Modal */}
+      {previewDoc && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">View Document</h3>
+                <p className="text-sm text-gray-500 truncate">{previewDoc.title || previewDoc.original_filename}</p>
+              </div>
+              <button
+                onClick={() => setPreviewDoc(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto" style={{ minHeight: '60vh' }}>
+              <DocumentViewer
+                url={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/pipeline/documents/${previewDoc.id}/file?token=${tokens?.access_token || ''}`}
+                fileType={previewDoc.file_type || 'pdf'}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Details Modal */}
       {viewingDoc && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -518,16 +610,6 @@ export function UploadStep() {
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 Close
-              </button>
-              <button
-                onClick={() => {
-                  handleDelete(viewingDoc.id)
-                  setViewingDoc(null)
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-              >
-                <Trash2 size={18} />
-                Delete Document
               </button>
             </div>
           </div>

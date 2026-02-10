@@ -201,6 +201,7 @@ interface PipelineState {
   // Text extraction
   fetchExtractedText: (documentId: number, token: string) => Promise<void>
   saveExtractedText: (documentId: number, data: { raw_text: string; cleaned_text?: string; extraction_method?: string; confidence_score?: number }, token: string) => Promise<void>
+  saveDraftExtractedText: (documentId: number, data: { raw_text: string; cleaned_text?: string; extraction_method?: string; confidence_score?: number }, token: string) => Promise<void>
   extractRawText: (documentId: number, extractionMethod: string, token: string) => Promise<{ raw_text: string; page_count?: number; word_count?: number } | null>
   cleanRawText: (documentId: number, rawText: string, token: string) => Promise<{ cleaned_text: string } | null>
   
@@ -394,6 +395,28 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
       set({ extractedText: extracted, isSaving: false })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to save', isSaving: false })
+    }
+  },
+
+  // Save draft without completing the task
+  saveDraftExtractedText: async (documentId, data, token) => {
+    set({ isSaving: true, error: null })
+    try {
+      const response = await fetch(`${API_URL}/api/v1/pipeline/documents/${documentId}/extract-draft`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data),
+      })
+      
+      if (!response.ok) throw new Error('Failed to save draft')
+      
+      const extracted = await response.json()
+      set({ extractedText: extracted, isSaving: false })
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to save draft', isSaving: false })
     }
   },
 

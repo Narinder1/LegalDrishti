@@ -66,13 +66,8 @@ class PipelineService:
         )
         self.db.add(upload_task)
         
-        # Create pending task for next step
-        extraction_task = PipelineTask(
-            document_id=document.id,
-            step=PipelineStep.TEXT_EXTRACTION,
-            status=TaskStatus.PENDING
-        )
-        self.db.add(extraction_task)
+        # Don't create text extraction task automatically
+        # User will manually advance to next step
         
         await self.db.commit()
         await self.db.refresh(document)
