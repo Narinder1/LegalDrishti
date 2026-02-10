@@ -175,12 +175,30 @@ export function TextExtractionStep() {
       tokens.access_token
     )
 
-    // Show success toast
-    setSuccessMessage('Successfully sent to the next step!')
-    setTimeout(() => setSuccessMessage(''), 3000)
+    // Advance document to the next step (chunking)
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/pipeline/documents/${selectedDoc.id}/advance-step`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        // Show success toast
+        setSuccessMessage('Successfully sent to the next step!')
+        setTimeout(() => setSuccessMessage(''), 3000)
 
-    // Navigate to chunking step
-    setActiveStep('chunking')
+        // Reset selection and refresh
+        setSelectedDoc(null)
+        await fetchDocuments(tokens.access_token, { step: 'text_extraction' })
+
+        // Navigate to chunking step
+        setActiveStep('chunking')
+      }
+    } catch (err) {
+      console.error('Failed to advance step:', err)
+    }
   }
 
   // Get documents needing extraction - filter by current_step
