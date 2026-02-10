@@ -213,7 +213,7 @@ export function TextExtractionStep() {
                 </div>
 
                 {/* Extraction Controls */}
-                <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+                <div className="flex items-end gap-4 pt-4 border-t border-gray-100">
                   <div className="flex-1 max-w-xs">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Extraction Method
@@ -228,42 +228,40 @@ export function TextExtractionStep() {
                       <option value="hybrid">Hybrid</option>
                     </select>
                   </div>
-                  <div className="flex items-end gap-3">
-                    <button
-                      onClick={handleExtractRawText}
-                      disabled={isExtracting}
-                      className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isExtracting ? (
-                        <>
-                          <Loader2 size={16} className="animate-spin" />
-                          Extracting...
-                        </>
-                      ) : (
-                        <>
-                          <Play size={16} />
-                          Extract Raw Text
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={handleCleanText}
-                      disabled={!rawText || isCleaning}
-                      className="flex items-center gap-2 px-5 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isCleaning ? (
-                        <>
-                          <Loader2 size={16} className="animate-spin" />
-                          Cleaning...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 size={16} />
-                          Clean Text
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleExtractRawText}
+                    disabled={isExtracting}
+                    className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isExtracting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Extracting...
+                      </>
+                    ) : (
+                      <>
+                        <Play size={16} />
+                        Extract Raw Text
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleCleanText}
+                    disabled={!rawText || isCleaning}
+                    className="flex items-center gap-2 px-5 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isCleaning ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Cleaning...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 size={16} />
+                        Clean Text
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
