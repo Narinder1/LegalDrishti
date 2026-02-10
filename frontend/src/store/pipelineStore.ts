@@ -201,6 +201,8 @@ interface PipelineState {
   // Text extraction
   fetchExtractedText: (documentId: number, token: string) => Promise<void>
   saveExtractedText: (documentId: number, data: { raw_text: string; cleaned_text?: string; extraction_method?: string; confidence_score?: number }, token: string) => Promise<void>
+  extractRawText: (documentId: number, extractionMethod: string, token: string) => Promise<{ raw_text: string; page_count?: number; word_count?: number } | null>
+  cleanRawText: (documentId: number, rawText: string, token: string) => Promise<{ cleaned_text: string } | null>
   
   // Chunking
   fetchChunks: (documentId: number, token: string) => Promise<void>
@@ -392,6 +394,57 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
       set({ extractedText: extracted, isSaving: false })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to save', isSaving: false })
+    }
+  },
+
+  // Extract raw text using Docling on backend
+  extractRawText: async (documentId, extractionMethod, token) => {
+    set({ isLoading: true, error: null })
+    try {
+      const params = new URLSearchParams({ extraction_method: extractionMethod })
+      const response = await fetch(`${API_URL}/api/v1/pipeline/documents/${documentId}/extract-text?${params}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || 'Extraction failed')
+      }
+
+      const data = await response.json()
+      set({ isLoading: false })
+      return data
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Extraction failed', isLoading: false })
+      return null
+    }
+  },
+
+  // Clean raw text via backend
+  cleanRawText: async (documentId, rawText, token) => {
+    set({ isLoading: true, error: null })
+    try {
+      const formData = new FormData()
+      formData.append('raw_text', rawText)
+
+      const response = await fetch(`${API_URL}/api/v1/pipeline/documents/${documentId}/clean-text`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || 'Cleaning failed')
+      }
+
+      const data = await response.json()
+      set({ isLoading: false })
+      return data
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Cleaning failed', isLoading: false })
+      return null
     }
   },
   

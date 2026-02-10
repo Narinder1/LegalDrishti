@@ -15,6 +15,7 @@ from app.core.dependencies import get_current_user, require_internal_team
 from app.models.user import User
 from app.models.document_pipeline import PipelineStep, DocumentStatus, TaskStatus
 from app.services.pipeline_service import PipelineService
+from app.services.extraction_service import ExtractionService
 from app.schemas.pipeline import (
     DocumentCreate, DocumentUpdate, DocumentResponse, DocumentListResponse,
     ExtractedTextCreate, ExtractedTextUpdate, ExtractedTextResponse,
@@ -268,6 +269,57 @@ async def get_extracted_text(
     if not extracted:
         raise HTTPException(status_code=404, detail="Extracted text not found")
     return extracted
+
+
+@router.post("/documents/{document_id}/extract-text")
+async def extract_text_from_document(
+    document_id: int,
+    extraction_method: str = Query("direct", description="Extraction method: direct, ocr, hybrid"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_internal_team)
+):
+    """Extract raw text from document using Docling.
+    Returns the extracted raw text without saving to DB."""
+    service = PipelineService(db)
+    document = await service.get_document(document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not os.path.exists(document.file_path):
+        raise HTTPException(status_code=404, detail="Document file not found on disk")
+
+    try:
+        result = await ExtractionService.extract_text(
+            file_path=document.file_path,
+            extraction_method=extraction_method
+        )
+        return {
+            "raw_text": result["raw_text"],
+            "extraction_method": result["extraction_method"],
+            "page_count": result.get("page_count"),
+            "word_count": result.get("word_count"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
+
+
+@router.post("/documents/{document_id}/clean-text")
+async def clean_extracted_text(
+    document_id: int,
+    raw_text: str = Form(..., description="Raw text to clean"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_internal_team)
+):
+    """Clean the provided raw text - removes artifacts, normalizes whitespace, etc."""
+    try:
+        cleaned = await ExtractionService.clean_text(raw_text)
+        return {
+            "cleaned_text": cleaned,
+            "original_length": len(raw_text),
+            "cleaned_length": len(cleaned),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(e)}")
 
 
 # ========== Chunking ==========

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Search, Play, Save, CheckCircle, AlertCircle, Eye, ArrowRight, X } from 'lucide-react'
+import { FileText, Search, Play, Save, CheckCircle, AlertCircle, Eye, ArrowRight, X, Sparkles, Loader2, Wand2 } from 'lucide-react'
 import { usePipelineStore, Document } from '@/store/pipelineStore'
 import { useAuthStore } from '@/store/authStore'
 import { DocumentViewer } from './DocumentViewer'
@@ -11,14 +11,17 @@ export function TextExtractionStep() {
   const [rawText, setRawText] = useState('')
   const [cleanedText, setCleanedText] = useState('')
   const [extractionMethod, setExtractionMethod] = useState('direct')
-  const [confidenceScore, setConfidenceScore] = useState(0.95)
-  const [showOriginal, setShowOriginal] = useState(false)
+  const [showOriginal, setShowOriginal] = useState(true)
+  const [isExtracting, setIsExtracting] = useState(false)
+  const [isCleaning, setIsCleaning] = useState(false)
 
   const {
     documents,
     fetchDocuments,
     fetchExtractedText,
     saveExtractedText,
+    extractRawText,
+    cleanRawText,
     extractedText,
     myTasks,
     fetchMyTasks,
@@ -26,12 +29,12 @@ export function TextExtractionStep() {
     isLoading,
     isSaving,
     error,
+    clearError,
   } = usePipelineStore()
   const { tokens } = useAuthStore()
 
   useEffect(() => {
     if (tokens?.access_token) {
-      // Fetch documents that are uploaded but not yet extracted (status = 'uploaded')
       fetchDocuments(tokens.access_token, { status: 'uploaded' })
       fetchMyTasks(tokens.access_token)
     }
@@ -48,7 +51,6 @@ export function TextExtractionStep() {
       setRawText(extractedText.raw_text)
       setCleanedText(extractedText.cleaned_text || '')
       setExtractionMethod(extractedText.extraction_method || 'direct')
-      setConfidenceScore(extractedText.confidence_score || 0.95)
     } else {
       setRawText('')
       setCleanedText('')
@@ -57,7 +59,36 @@ export function TextExtractionStep() {
 
   const handleSelectDocument = (doc: Document) => {
     setSelectedDoc(doc)
-    setShowOriginal(false)
+    setShowOriginal(true)
+    clearError()
+  }
+
+  const handleExtractRawText = async () => {
+    if (!selectedDoc || !tokens?.access_token) return
+    setIsExtracting(true)
+    clearError()
+    try {
+      const result = await extractRawText(selectedDoc.id, extractionMethod, tokens.access_token)
+      if (result) {
+        setRawText(result.raw_text)
+      }
+    } finally {
+      setIsExtracting(false)
+    }
+  }
+
+  const handleCleanText = async () => {
+    if (!selectedDoc || !tokens?.access_token || !rawText) return
+    setIsCleaning(true)
+    clearError()
+    try {
+      const result = await cleanRawText(selectedDoc.id, rawText, tokens.access_token)
+      if (result) {
+        setCleanedText(result.cleaned_text)
+      }
+    } finally {
+      setIsCleaning(false)
+    }
   }
 
   const handleSaveExtraction = async () => {
@@ -69,23 +100,12 @@ export function TextExtractionStep() {
         raw_text: rawText,
         cleaned_text: cleanedText || undefined,
         extraction_method: extractionMethod,
-        confidence_score: confidenceScore,
       },
       tokens.access_token
     )
 
     // Refresh documents list
     await fetchDocuments(tokens.access_token, { status: 'uploaded' })
-  }
-
-  const handleAutoClean = () => {
-    // Simple text cleaning - remove extra whitespace, normalize line breaks
-    let cleaned = rawText
-      .replace(/\r\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .replace(/[ \t]+/g, ' ')
-      .trim()
-    setCleanedText(cleaned)
   }
 
   // Get documents needing extraction
@@ -125,7 +145,7 @@ export function TextExtractionStep() {
             <h3 className="font-semibold text-gray-900">Documents Queue</h3>
             <p className="text-xs text-gray-500 mt-1">{pendingDocs.length} pending extraction</p>
           </div>
-          <div className="p-2 max-h-[500px] overflow-y-auto">
+          <div className="p-2 max-h-[600px] overflow-y-auto">
             {pendingDocs.length > 0 ? (
               pendingDocs.map((doc) => (
                 <button
@@ -164,9 +184,9 @@ export function TextExtractionStep() {
         <div className="lg:col-span-3">
           {selectedDoc ? (
             <div className="space-y-4">
-              {/* Document Info */}
+              {/* Document Info & Controls */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
                       <FileText className="w-6 h-6 text-primary-600" />
@@ -179,89 +199,149 @@ export function TextExtractionStep() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowOriginal(true)}
-                      className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
-                    >
-                      <Eye size={16} />
-                      View Original
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setShowOriginal(!showOriginal)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      showOriginal 
+                        ? 'bg-primary-600 text-white hover:bg-primary-700' 
+                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Eye size={16} />
+                    {showOriginal ? 'Hide Original' : 'View Original'}
+                  </button>
                 </div>
-              </div>
 
-              {/* Extraction Controls */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
+                {/* Extraction Controls */}
+                <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+                  <div className="flex-1 max-w-xs">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Extraction Method
                     </label>
                     <select
                       value={extractionMethod}
                       onChange={(e) => setExtractionMethod(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value="direct">Direct Text</option>
                       <option value="ocr">OCR (Scanned)</option>
                       <option value="hybrid">Hybrid</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Confidence Score
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={confidenceScore}
-                      onChange={(e) => setConfidenceScore(parseFloat(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    />
-                  </div>
-                  <div className="flex items-end">
+                  <div className="flex items-end gap-3">
                     <button
-                      onClick={handleAutoClean}
-                      disabled={!rawText}
-                      className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 disabled:opacity-50"
+                      onClick={handleExtractRawText}
+                      disabled={isExtracting}
+                      className="flex items-center gap-2 px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      Auto-Clean Text
+                      {isExtracting ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Extracting...
+                        </>
+                      ) : (
+                        <>
+                          <Play size={16} />
+                          Extract Raw Text
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleCleanText}
+                      disabled={!rawText || isCleaning}
+                      className="flex items-center gap-2 px-5 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isCleaning ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Cleaning...
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 size={16} />
+                          Clean Text
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Text Editor */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Text Editor - Multiple columns with Original Document Viewer */}
+              <div className={`grid gap-4 ${showOriginal ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'}`}>
+                {/* Original Document Viewer */}
+                {showOriginal && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Original Document
+                      </label>
+                      <button
+                        onClick={() => setShowOriginal(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="border border-gray-300 rounded-lg overflow-hidden bg-gray-50" style={{ height: '600px' }}>
+                      {originalUrl ? (
+                        <DocumentViewer
+                          url={originalUrl}
+                          fileType={selectedDoc.file_type || 'pdf'}
+                        />
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-gray-500 text-sm">
+                          Unable to load document
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Raw Extracted Text */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Raw Extracted Text
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Raw Extracted Text
+                    </label>
+                    {isExtracting && (
+                      <span className="flex items-center gap-1 text-xs text-primary-600">
+                        <Loader2 size={12} className="animate-spin" />
+                        Extracting with Docling...
+                      </span>
+                    )}
+                  </div>
                   <textarea
                     value={rawText}
                     onChange={(e) => setRawText(e.target.value)}
-                    rows={15}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none"
-                    placeholder="Paste or type the extracted text here..."
+                    rows={26}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Click 'Extract Raw Text' to extract content from the document..."
                   />
                   <p className="text-xs text-gray-400 mt-2">
                     {rawText.length} characters • {rawText.split(/\s+/).filter(Boolean).length} words
                   </p>
                 </div>
 
+                {/* Cleaned Text */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cleaned Text (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Cleaned Text (Optional)
+                    </label>
+                    {isCleaning && (
+                      <span className="flex items-center gap-1 text-xs text-violet-600">
+                        <Loader2 size={12} className="animate-spin" />
+                        Cleaning text...
+                      </span>
+                    )}
+                  </div>
                   <textarea
                     value={cleanedText}
                     onChange={(e) => setCleanedText(e.target.value)}
-                    rows={15}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none"
-                    placeholder="Cleaned/preprocessed text (after removing headers, footers, etc.)"
+                    rows={26}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                    placeholder="Click 'Clean Text' to auto-clean the extracted text, or type manually..."
                   />
                   <p className="text-xs text-gray-400 mt-2">
                     {cleanedText.length} characters • {cleanedText.split(/\s+/).filter(Boolean).length} words
@@ -274,15 +354,18 @@ export function TextExtractionStep() {
                 <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
                   <AlertCircle size={18} />
                   <span className="text-sm">{error}</span>
+                  <button onClick={clearError} className="ml-auto text-red-400 hover:text-red-600">
+                    <X size={16} />
+                  </button>
                 </div>
               )}
 
-              {/* Actions */}
+              {/* Save Action */}
               <div className="flex justify-end gap-3">
                 <button
                   onClick={handleSaveExtraction}
                   disabled={isSaving || !rawText}
-                  className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium ${
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors ${
                     isSaving || !rawText
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-secondary-600 text-white hover:bg-secondary-700'
@@ -290,7 +373,7 @@ export function TextExtractionStep() {
                 >
                   {isSaving ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <Loader2 size={18} className="animate-spin" />
                       Saving...
                     </>
                   ) : (
@@ -315,38 +398,6 @@ export function TextExtractionStep() {
         </div>
       </div>
     </div>
-
-    {/* View Original Modal */}
-    {showOriginal && selectedDoc && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Original Document</p>
-              <h3 className="text-lg font-semibold text-gray-900">{selectedDoc.title || selectedDoc.original_filename}</h3>
-            </div>
-            <button
-              onClick={() => setShowOriginal(false)}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
-            >
-              <X size={18} />
-            </button>
-          </div>
-          <div className="flex-1 bg-gray-50 min-h-[70vh]">
-            {originalUrl && selectedDoc ? (
-              <DocumentViewer
-                url={originalUrl}
-                fileType={selectedDoc.file_type || 'pdf'}
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500 text-sm">
-                Unable to load original document
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
     </>
   )
 }
