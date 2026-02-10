@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, FileText, X, CheckCircle, AlertCircle, File, Eye, Trash2, ArrowRight } from 'lucide-react'
+import { Upload, FileText, X, CheckCircle, AlertCircle, File, Eye, Trash2, ArrowRight, Search } from 'lucide-react'
 import { usePipelineStore, Document } from '@/store/pipelineStore'
 import { useAuthStore } from '@/store/authStore'
 
@@ -36,6 +36,8 @@ export function UploadStep() {
   const [recentUploads, setRecentUploads] = useState<Document[]>([])
   const [viewingDoc, setViewingDoc] = useState<Document | null>(null)
   const [deletingDocId, setDeletingDocId] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
 
   const { uploadDocument, fetchDocuments, documents, isUploading, error, clearError, setActiveStep } = usePipelineStore()
   const { tokens } = useAuthStore()
@@ -47,9 +49,19 @@ export function UploadStep() {
   }, [tokens, fetchDocuments])
 
   useEffect(() => {
-    // Show last 5 uploaded documents
-    setRecentUploads(documents.slice(0, 5))
-  }, [documents])
+    // Filter and show documents based on search
+    let filtered = documents
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = documents.filter(doc => 
+        doc.title?.toLowerCase().includes(query) ||
+        doc.original_filename.toLowerCase().includes(query) ||
+        doc.category?.toLowerCase().includes(query) ||
+        doc.description?.toLowerCase().includes(query)
+      )
+    }
+    setRecentUploads(filtered.slice(0, 5))
+  }, [documents, searchQuery])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -342,7 +354,31 @@ export function UploadStep() {
         {/* Recent Uploads */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Recent Uploads</h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold text-gray-900">Recent Uploads</h3>
+              <div className="flex items-center gap-2">
+                {showSearch && (
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search documents..."
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 w-64"
+                    autoFocus
+                  />
+                )}
+                <button
+                  onClick={() => {
+                    setShowSearch(!showSearch)
+                    if (showSearch) setSearchQuery('')
+                  }}
+                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Search documents"
+                >
+                  {showSearch ? <X size={18} /> : <Search size={18} />}
+                </button>
+              </div>
+            </div>
           </div>
           <div className="p-4 space-y-3">
             {recentUploads.length > 0 ? (

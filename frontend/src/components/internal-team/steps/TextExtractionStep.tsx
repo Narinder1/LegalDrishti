@@ -14,6 +14,8 @@ export function TextExtractionStep() {
   const [showOriginal, setShowOriginal] = useState(true)
   const [isExtracting, setIsExtracting] = useState(false)
   const [isCleaning, setIsCleaning] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
 
   const {
     documents,
@@ -109,7 +111,18 @@ export function TextExtractionStep() {
   }
 
   // Get documents needing extraction
-  const pendingDocs = documents.filter(d => d.status === 'uploaded')
+  let pendingDocs = documents.filter(d => d.status === 'uploaded')
+  
+  // Apply search filter
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase()
+    pendingDocs = pendingDocs.filter(doc =>
+      doc.title?.toLowerCase().includes(query) ||
+      doc.original_filename.toLowerCase().includes(query) ||
+      doc.category?.toLowerCase().includes(query)
+    )
+  }
+  
   const myPendingTasks = myTasks.pending.filter(t => t.step === 'text_extraction')
 
   const formatFileSize = (bytes: number) => {
@@ -142,8 +155,32 @@ export function TextExtractionStep() {
         {/* Document List */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100">
           <div className="p-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Documents Queue</h3>
-            <p className="text-xs text-gray-500 mt-1">{pendingDocs.length} pending extraction</p>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900">Documents Queue</h3>
+                <p className="text-xs text-gray-500 mt-1">{pendingDocs.length} pending extraction</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowSearch(!showSearch)
+                  if (showSearch) setSearchQuery('')
+                }}
+                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                title="Search documents"
+              >
+                {showSearch ? <X size={18} /> : <Search size={18} />}
+              </button>
+            </div>
+            {showSearch && (
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search documents..."
+                className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 mt-2"
+                autoFocus
+              />
+            )}
           </div>
           <div className="p-2 max-h-[600px] overflow-y-auto">
             {pendingDocs.length > 0 ? (
