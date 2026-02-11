@@ -247,28 +247,13 @@ export function TextExtractionStep() {
         {/* Collapsed Queue Toggle Button */}
         {isQueueCollapsed && (
           <div className="fixed top-1/2 left-4 z-10">
-            <div className="relative">
-              <button
-                onClick={() => setIsQueueCollapsed(false)}
-                className="p-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-all duration-200 hover:scale-105"
-                title={`Show document queue (${pendingDocs.length} pending)`}
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-            {selectedDoc && (
-              <div className="mt-3 p-2 bg-white rounded-lg shadow-lg border border-gray-200 max-w-xs">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-primary-600 flex-shrink-0" />
-                  <p className="text-xs font-medium text-gray-900 truncate">
-                    {selectedDoc.title || selectedDoc.original_filename}
-                  </p>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Current document
-                </p>
-              </div>
-            )}
+            <button
+              onClick={() => setIsQueueCollapsed(false)}
+              className="p-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-all duration-200 hover:scale-105"
+              title={`Show document queue (${pendingDocs.length} pending)`}
+            >
+              <ChevronRight size={20} />
+            </button>
           </div>
         )}
 
