@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Search, Play, Save, CheckCircle, AlertCircle, Eye, ArrowRight, X, Sparkles, Loader2, Wand2 } from 'lucide-react'
+import { FileText, Search, Play, Save, CheckCircle, AlertCircle, Eye, ArrowRight, X, Sparkles, Loader2, Wand2, ChevronLeft, ChevronRight, Menu } from 'lucide-react'
 import { usePipelineStore, Document } from '@/store/pipelineStore'
 import { useAuthStore } from '@/store/authStore'
 import { DocumentViewer } from './DocumentViewer'
@@ -20,6 +20,7 @@ export function TextExtractionStep() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [isQueueCollapsed, setIsQueueCollapsed] = useState(false)
 
   const {
     documents,
@@ -228,40 +229,78 @@ export function TextExtractionStep() {
 
   return (
     <>
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Text Extraction</h1>
-          <p className="text-gray-600">Extract and clean text from uploaded documents</p>
-        </div>
-        {myPendingTasks.length > 0 && (
-          <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-lg text-sm">
-            {myPendingTasks.length} task(s) assigned to you
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Text Extraction</h1>
+            <p className="text-gray-600">Extract and clean text from uploaded documents</p>
           </div>
-        )}
-      </div>
+          {myPendingTasks.length > 0 && (
+            <div className="bg-amber-50 text-amber-700 px-4 py-2 rounded-lg text-sm">
+              {myPendingTasks.length} task(s) assigned to you
+            </div>
+          )}
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Document List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="p-4 border-b border-gray-100">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">Documents Queue</h3>
-                <p className="text-xs text-gray-500 mt-1">{pendingDocs.length} pending extraction</p>
-              </div>
+        <div className={`grid gap-6 ${isQueueCollapsed ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-4'}`}>
+        {/* Collapsed Queue Toggle Button */}
+        {isQueueCollapsed && (
+          <div className="fixed top-1/2 left-4 z-10">
+            <div className="relative">
               <button
-                onClick={() => {
-                  setShowSearch(!showSearch)
-                  if (showSearch) setSearchQuery('')
-                }}
-                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                title="Search documents"
+                onClick={() => setIsQueueCollapsed(false)}
+                className="p-3 bg-primary-600 text-white rounded-lg shadow-lg hover:bg-primary-700 transition-all duration-200 hover:scale-105"
+                title={`Show document queue (${pendingDocs.length} pending)`}
               >
-                {showSearch ? <X size={18} /> : <Search size={18} />}
+                <ChevronRight size={20} />
               </button>
             </div>
+            {selectedDoc && (
+              <div className="mt-3 p-2 bg-white rounded-lg shadow-lg border border-gray-200 max-w-xs">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary-600 flex-shrink-0" />
+                  <p className="text-xs font-medium text-gray-900 truncate">
+                    {selectedDoc.title || selectedDoc.original_filename}
+                  </p>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Current document
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Document List - Collapsible */}
+        {!isQueueCollapsed && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900">Documents Queue</h3>
+                  <p className="text-xs text-gray-500 mt-1">{pendingDocs.length} pending extraction</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      setShowSearch(!showSearch)
+                      if (showSearch) setSearchQuery('')
+                    }}
+                    className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                    title="Search documents"
+                  >
+                    {showSearch ? <X size={18} /> : <Search size={18} />}
+                  </button>
+                  <button
+                    onClick={() => setIsQueueCollapsed(true)}
+                    className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0 hover:text-primary-600"
+                    title="Collapse queue for better view"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                </div>
+              </div>
             {showSearch && (
               <input
                 type="text"
@@ -306,10 +345,11 @@ export function TextExtractionStep() {
               </div>
             )}
           </div>
-        </div>
+          </div>
+        )}
 
         {/* Extraction Editor */}
-        <div className="lg:col-span-3">
+        <div className={`${isQueueCollapsed ? 'col-span-1' : 'lg:col-span-3'}`}>
           {selectedDoc ? (
             <div className="space-y-4">
               {/* Document Info & Controls */}
@@ -573,7 +613,7 @@ export function TextExtractionStep() {
           )}
         </div>
       </div>
-    </div>
+      </div>
     </>
   )
 }

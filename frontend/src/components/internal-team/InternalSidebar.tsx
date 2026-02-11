@@ -40,10 +40,10 @@ export function InternalSidebar({ activePage, onPageChange }: InternalSidebarPro
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { activeStep, setActiveStep, stats, myTasks } = usePipelineStore()
 
-  const mainNavItems: Array<{ key: 'dashboard' | 'pipeline' | 'tasks' | 'analytics' | 'team' | 'settings'; label: string; icon: LucideIcon; badge?: number }> = [
+  const mainNavItems: Array<{ key: 'dashboard' | 'pipeline' | 'tasks' | 'analytics' | 'team' | 'settings'; label: string; icon: LucideIcon }> = [
     { key: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { key: 'pipeline' as const, label: 'Pipeline', icon: Upload },
-    { key: 'tasks' as const, label: 'My Tasks', icon: ListTodo, badge: myTasks.pending.length + myTasks.revision_required.length },
+    { key: 'tasks' as const, label: 'My Tasks', icon: ListTodo },
     { key: 'analytics' as const, label: 'Analytics', icon: BarChart3 },
     { key: 'team' as const, label: 'Team', icon: Users },
     { key: 'settings' as const, label: 'Settings', icon: Settings },
@@ -88,14 +88,7 @@ export function InternalSidebar({ activePage, onPageChange }: InternalSidebarPro
             >
               <Icon size={20} className={isActive ? 'text-primary-600' : ''} />
               {!isCollapsed && (
-                <>
-                  <span className="flex-1 text-left text-sm font-medium">{item.label}</span>
-                  {item.badge && item.badge > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </>
+                <span className="flex-1 text-left text-sm font-medium">{item.label}</span>
               )}
             </button>
           )
