@@ -177,9 +177,14 @@ class PipelineService:
         cleaned_text: Optional[str] = None,
         extraction_method: Optional[str] = None,
         confidence_score: Optional[float] = None,
-        processed_by_id: Optional[int] = None
+        processed_by_id: Optional[int] = None,
+        is_draft: bool = False
     ) -> ExtractedText:
-        """Save extracted text for a document"""
+        """Save extracted text for a document
+        
+        Args:
+            is_draft: If True, only saves the text without updating document step/status
+        """
         # Check if extraction already exists
         result = await self.db.execute(
             select(ExtractedText).where(ExtractedText.document_id == document_id)
@@ -207,8 +212,9 @@ class PipelineService:
             )
             self.db.add(extracted_text)
         
-        # Update document status
-        await self._update_document_step(document_id, PipelineStep.TEXT_EXTRACTION, DocumentStatus.TEXT_EXTRACTED)
+        # Only update document status if NOT a draft
+        if not is_draft:
+            await self._update_document_step(document_id, PipelineStep.TEXT_EXTRACTION, DocumentStatus.TEXT_EXTRACTED)
         
         await self.db.commit()
         await self.db.refresh(extracted_text)

@@ -430,14 +430,15 @@ async def save_extraction_draft(
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
     
-    # Save the extracted text but DON'T complete the task
+    # Save the extracted text but DON'T complete the task or update document step
     extracted = await service.save_extracted_text(
         document_id=document_id,
         raw_text=data.raw_text,
         cleaned_text=data.cleaned_text,
         extraction_method=data.extraction_method,
         confidence_score=data.confidence_score,
-        processed_by_id=current_user.id
+        processed_by_id=current_user.id,
+        is_draft=True  # This prevents advancing the document step
     )
     
     return extracted

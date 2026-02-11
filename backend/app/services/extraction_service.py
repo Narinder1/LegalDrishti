@@ -133,8 +133,28 @@ class ExtractionService:
 
         cleaned = raw_text
 
+        # Remove HTML comments like <!-- image -->
+        cleaned = re.sub(r"<!--\s*\w+\s*-->", "", cleaned)
+
+        # Remove HTML entities and unknown tags
+        cleaned = re.sub(r"&lt;unknown&gt;", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"&[a-z]+;", "", cleaned, flags=re.IGNORECASE)
+
         # Normalize line endings
         cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
+
+        # Remove repeated header/footer patterns (like "NC: 2025:KHC:410" or "CP No. 411 of 2024")
+        cleaned = re.sub(r"\n\s*NC:\s*\d{4}:[A-Z]+:\d+\s*\n", "\n", cleaned)
+        cleaned = re.sub(r"\n\s*CP\s+No\.?\s+\d+\s+of\s+\d{4}\s*\n", "\n", cleaned, flags=re.IGNORECASE)
+        
+        # Remove standalone ## symbols on a line
+        cleaned = re.sub(r"\n\s*#{1,6}\s*\n", "\n", cleaned)
+        
+        # Remove ## markdown symbols from the beginning of headings
+        cleaned = re.sub(r"^#{1,6}\s+", "", cleaned, flags=re.MULTILINE)
+        
+        # Remove bullet point dashes from list items (- i., - ii., - iv., etc.)
+        cleaned = re.sub(r"^-\s+", "", cleaned, flags=re.MULTILINE)
 
         # Remove excessive blank lines (more than 2 consecutive)
         cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
@@ -145,6 +165,10 @@ class ExtractionService:
 
         # Remove common header/footer artifacts
         cleaned = re.sub(r"\n\s*(CONFIDENTIAL|DRAFT|DO NOT DISTRIBUTE)\s*\n", "\n", cleaned, flags=re.IGNORECASE)
+        
+        # Remove footer patterns (List No, Sl No, etc.)
+        cleaned = re.sub(r"\n\s*List\s+No\.?:\s*\d+\s*\n", "\n", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\n\s*Sl\s+No\.?:\s*\d+\s*\n", "\n", cleaned, flags=re.IGNORECASE)
 
         # Normalize whitespace within lines (collapse multiple spaces/tabs)
         cleaned = re.sub(r"[ \t]+", " ", cleaned)

@@ -67,7 +67,12 @@ export function ChunkingStep() {
 
   useEffect(() => {
     if (extractedText) {
-      setSourceText(extractedText.cleaned_text || extractedText.raw_text)
+      // Only use cleaned_text for chunking, require it to be present
+      if (extractedText.cleaned_text) {
+        setSourceText(extractedText.cleaned_text)
+      } else {
+        setSourceText('')
+      }
     }
   }, [extractedText])
 

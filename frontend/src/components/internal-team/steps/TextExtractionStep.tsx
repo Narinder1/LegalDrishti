@@ -84,7 +84,7 @@ export function TextExtractionStep() {
     const progressInterval = setInterval(() => {
       setExtractionProgress(prev => {
         if (prev >= 90) return prev
-        return prev + Math.random() * 15
+        return Math.min(90, prev + Math.random() * 15)
       })
     }, 300)
     
@@ -164,13 +164,13 @@ export function TextExtractionStep() {
   const handleSaveExtraction = async (e?: React.MouseEvent) => {
     e?.stopPropagation()
     e?.preventDefault()
-    if (!selectedDoc || !tokens?.access_token || !rawText) return
+    if (!selectedDoc || !tokens?.access_token || !rawText || !cleanedText) return
 
     await saveExtractedText(
       selectedDoc.id,
       {
         raw_text: rawText,
-        cleaned_text: cleanedText || undefined,
+        cleaned_text: cleanedText,
         extraction_method: extractionMethod,
       },
       tokens.access_token
@@ -494,7 +494,7 @@ export function TextExtractionStep() {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Cleaned Text (Optional)
+                      Cleaned Text
                     </label>
                     {isCleaning && (
                       <span className="flex items-center gap-1 text-xs text-primary-600">
@@ -508,11 +508,11 @@ export function TextExtractionStep() {
                     onChange={(e) => setCleanedText(e.target.value)}
                     rows={26}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono resize-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Click 'Clean Text' to auto-clean the extracted text, or type manually..."
+                    placeholder="Click 'Clean Text' to auto-clean the extracted text. Cleaned text is required before proceeding to chunking."
                   />
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs text-gray-400">
-                      {cleanedText.length} characters • {cleanedText.split(/\s+/).filter(Boolean).length} words
+                      {cleanedText.length} characters • {cleanedText.split(/\s+/).filter(Boolean).length} words {!cleanedText && <span className="text-orange-500 font-medium">• Required for chunking</span>}
                     </p>
                     <button
                       onClick={handleSaveCleanedDraft}
@@ -565,9 +565,9 @@ export function TextExtractionStep() {
               <div className="flex justify-end gap-3">
                 <button
                   onClick={handleSaveExtraction}
-                  disabled={isSaving || !rawText}
+                  disabled={isSaving || !rawText || !cleanedText}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors ${
-                    isSaving || !rawText
+                    isSaving || !rawText || !cleanedText
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-primary-600 text-white hover:bg-primary-700'
                   }`}
