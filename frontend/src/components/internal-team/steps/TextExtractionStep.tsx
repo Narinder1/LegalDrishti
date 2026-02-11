@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Search, Play, Save, CheckCircle, AlertCircle, Eye, ArrowRight, X, Sparkles, Loader2, Wand2, ChevronLeft, ChevronRight, Menu } from 'lucide-react'
+import { FileText, Search, Play, Save, CheckCircle, AlertCircle, Eye, ArrowRight, X, Sparkles, Loader2, Wand2, ChevronLeft, ChevronRight, Menu, Trash2 } from 'lucide-react'
 import { usePipelineStore, Document } from '@/store/pipelineStore'
 import { useAuthStore } from '@/store/authStore'
 import { DocumentViewer } from './DocumentViewer'
@@ -158,6 +158,22 @@ export function TextExtractionStep() {
       )
     } finally {
       setIsSavingCleanedDraft(false)
+    }
+  }
+
+  const handleClearRawDraft = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    e?.preventDefault()
+    if (window.confirm('Are you sure you want to clear the raw extracted text?')) {
+      setRawText('')
+    }
+  }
+
+  const handleClearCleanedDraft = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    e?.preventDefault()
+    if (window.confirm('Are you sure you want to clear the cleaned text?')) {
+      setCleanedText('')
     }
   }
 
@@ -469,24 +485,35 @@ export function TextExtractionStep() {
                     <p className="text-xs text-gray-400">
                       {rawText.length} characters • {rawText.split(/\s+/).filter(Boolean).length} words
                     </p>
-                    <button
-                      onClick={handleSaveRawDraft}
-                      disabled={!rawText || isSavingRawDraft}
-                      className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      type="button"
-                    >
-                      {isSavingRawDraft ? (
-                        <>
-                          <Loader2 size={14} className="animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save size={14} />
-                          Save Draft
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleClearRawDraft}
+                        disabled={!rawText}
+                        className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                      >
+                        <Trash2 size={14} />
+                        Clear Draft
+                      </button>
+                      <button
+                        onClick={handleSaveRawDraft}
+                        disabled={!rawText || isSavingRawDraft}
+                        className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                      >
+                        {isSavingRawDraft ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={14} />
+                            Save Draft
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -514,24 +541,35 @@ export function TextExtractionStep() {
                     <p className="text-xs text-gray-400">
                       {cleanedText.length} characters • {cleanedText.split(/\s+/).filter(Boolean).length} words {!cleanedText && <span className="text-orange-500 font-medium">• Required for chunking</span>}
                     </p>
-                    <button
-                      onClick={handleSaveCleanedDraft}
-                      disabled={!cleanedText || isSavingCleanedDraft}
-                      className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      type="button"
-                    >
-                      {isSavingCleanedDraft ? (
-                        <>
-                          <Loader2 size={14} className="animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save size={14} />
-                          Save Draft
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleClearCleanedDraft}
+                        disabled={!cleanedText}
+                        className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                      >
+                        <Trash2 size={14} />
+                        Clear Draft
+                      </button>
+                      <button
+                        onClick={handleSaveCleanedDraft}
+                        disabled={!cleanedText || isSavingCleanedDraft}
+                        className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                      >
+                        {isSavingCleanedDraft ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save size={14} />
+                            Save Draft
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
