@@ -194,6 +194,7 @@ interface PipelineState {
   
   // Document actions
   uploadDocument: (file: File, data: { title?: string; description?: string; category?: string; priority?: number }, token: string) => Promise<Document | null>
+  checkDuplicate: (file: File, token: string) => Promise<{ is_duplicate: boolean; existing_document?: Document } | null>
   fetchDocuments: (token: string, filters?: { status?: DocumentStatus; step?: PipelineStep; category?: string }) => Promise<void>
   fetchDocument: (id: number, token: string) => Promise<void>
   updateDocument: (id: number, data: Partial<Document>, token: string) => Promise<void>
@@ -274,8 +275,16 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
       })
       
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Upload failed')
+        const errorData = await response.json()
+        if (response.status === 409) {
+          // Handle duplicate error specifically
+          throw { 
+            isDuplicate: true, 
+            message: errorData.detail?.message || 'Duplicate document found',
+            existingDocument: errorData.detail?.existing_document
+          }
+        }
+        throw new Error(errorData.detail || 'Upload failed')
       }
       
       const document: Document = await response.json()
@@ -286,6 +295,30 @@ export const usePipelineStore = create<PipelineState>((set, get) => ({
       return document
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Upload failed', isUploading: false })
+      return null
+    }
+  },
+  
+  // Check for duplicate
+  checkDuplicate: async (file, token) => {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const response = await fetch(`${API_URL}/api/v1/pipeline/check-duplicate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to check duplicate')
+      }
+      
+      const result = await response.json()
+      return result
+    } catch (error) {
+      console.error('Duplicate check error:', error)
       return null
     }
   },

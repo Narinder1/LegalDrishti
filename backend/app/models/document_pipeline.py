@@ -57,6 +57,7 @@ class Document(Base):
     file_path = Column(String(1000), nullable=False)
     file_type = Column(String(50), nullable=False)  # pdf, docx, txt, etc.
     file_size = Column(Integer, nullable=False)  # in bytes
+    file_hash = Column(String(64), nullable=True, index=True)  # SHA-256 hash for duplicate detection
     
     # Processing status
     current_step = Column(Enum(PipelineStep), default=PipelineStep.UPLOAD)

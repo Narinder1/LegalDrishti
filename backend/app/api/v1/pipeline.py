@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.document_pipeline import PipelineStep, DocumentStatus, TaskStatus
 from app.services.pipeline_service import PipelineService
 from app.services.extraction_service import ExtractionService
+from app.utils.helpers import calculate_file_hash_from_upload
 from app.schemas.pipeline import (
     DocumentCreate, DocumentUpdate, DocumentResponse, DocumentListResponse,
     ExtractedTextCreate, ExtractedTextUpdate, ExtractedTextResponse,
@@ -57,6 +58,30 @@ async def upload_document(
             detail=f"File type not allowed. Allowed types: {', '.join(ALLOWED_EXTENSIONS)}"
         )
     
+    # Read file data and calculate hash for duplicate detection
+    file_data = await file.read()
+    file_hash = calculate_file_hash_from_upload(file_data)
+    
+    # Check for duplicates
+    service = PipelineService(db)
+    existing_document = await service.check_duplicate_document(file_hash)
+    
+    if existing_document:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Duplicate document found",
+                "existing_document": {
+                    "id": existing_document.id,
+                    "title": existing_document.title,
+                    "original_filename": existing_document.original_filename,
+                    "category": existing_document.category,
+                    "created_at": existing_document.created_at.isoformat(),
+                    "uploaded_by_id": existing_document.uploaded_by_id
+                }
+            }
+        )
+    
     # Create upload directory if not exists
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     
@@ -67,18 +92,18 @@ async def upload_document(
     # Save file
     try:
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        file_size = os.path.getsize(file_path)
+            buffer.write(file_data)
+        file_size = len(file_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     
     # Create document record
-    service = PipelineService(db)
     document = await service.create_document(
         filename=file.filename,
         file_path=file_path,
         file_type=file_ext[1:],  # Remove dot
         file_size=file_size,
+        file_hash=file_hash,
         uploaded_by_id=current_user.id,
         title=title,
         description=description,
@@ -87,6 +112,38 @@ async def upload_document(
     )
     
     return document
+
+
+@router.post("/check-duplicate")
+async def check_duplicate(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_internal_team)
+):
+    """Check if a document is a duplicate without uploading"""
+    # Calculate file hash
+    file_data = await file.read()
+    file_hash = calculate_file_hash_from_upload(file_data)
+    
+    # Check for duplicates
+    service = PipelineService(db)
+    existing_document = await service.check_duplicate_document(file_hash)
+    
+    if existing_document:
+        return {
+            "is_duplicate": True,
+            "existing_document": {
+                "id": existing_document.id,
+                "title": existing_document.title,
+                "original_filename": existing_document.original_filename,
+                "category": existing_document.category,
+                "created_at": existing_document.created_at.isoformat(),
+                "uploaded_by_id": existing_document.uploaded_by_id,
+                "file_size": existing_document.file_size
+            }
+        }
+    
+    return {"is_duplicate": False}
 
 
 @router.get("/documents", response_model=DocumentListResponse)

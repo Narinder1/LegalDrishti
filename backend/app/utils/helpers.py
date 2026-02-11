@@ -3,6 +3,7 @@ Helper utilities
 """
 import re
 import os
+import hashlib
 from typing import Optional
 from app.core.config import settings
 
@@ -57,3 +58,21 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
     if not text or len(text) <= max_length:
         return text
     return text[:max_length - len(suffix)] + suffix
+
+
+def calculate_file_hash(file_path: str) -> str:
+    """
+    Calculate SHA-256 hash of a file
+    """
+    hash_sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
+
+
+def calculate_file_hash_from_upload(file_data: bytes) -> str:
+    """
+    Calculate SHA-256 hash from uploaded file data
+    """
+    return hashlib.sha256(file_data).hexdigest()

@@ -26,6 +26,13 @@ class PipelineService:
     
     # ========== Document Operations ==========
     
+    async def check_duplicate_document(self, file_hash: str) -> Optional[Document]:
+        """Check if a document with the same file hash already exists"""
+        result = await self.db.execute(
+            select(Document).where(Document.file_hash == file_hash)
+        )
+        return result.scalar_one_or_none()
+    
     async def create_document(
         self,
         filename: str,
@@ -33,6 +40,7 @@ class PipelineService:
         file_type: str,
         file_size: int,
         uploaded_by_id: int,
+        file_hash: Optional[str] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
         category: Optional[str] = None,
@@ -44,6 +52,7 @@ class PipelineService:
             file_path=file_path,
             file_type=file_type,
             file_size=file_size,
+            file_hash=file_hash,
             uploaded_by_id=uploaded_by_id,
             title=title or filename,
             description=description,

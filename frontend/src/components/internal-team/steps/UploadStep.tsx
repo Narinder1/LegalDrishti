@@ -41,8 +41,13 @@ export function UploadStep() {
   const [deletingDocId, setDeletingDocId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [duplicateInfo, setDuplicateInfo] = useState<{
+    isDuplicate: boolean;
+    existingDocument?: Document;
+  } | null>(null)
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false)
 
-  const { uploadDocument, fetchDocuments, documents, isUploading, error, clearError, setActiveStep } = usePipelineStore()
+  const { uploadDocument, fetchDocuments, documents, isUploading, error, clearError, setActiveStep, checkDuplicate } = usePipelineStore()
   const { tokens } = useAuthStore()
 
   useEffect(() => {
@@ -97,18 +102,34 @@ export function UploadStep() {
     }
   }, [])
 
-  const validateAndSetFile = (file: File) => {
+  const validateAndSetFile = async (file: File) => {
     const ext = '.' + file.name.split('.').pop()?.toLowerCase()
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
       alert(`Invalid file type. Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`)
       return
     }
+    
     setSelectedFile(file)
     if (!formData.title) {
       setFormData(prev => ({ ...prev, title: file.name.replace(/\.[^/.]+$/, '') }))
     }
     clearError()
     setUploadSuccess(false)
+    setDuplicateInfo(null)
+    
+    // Check for duplicates
+    if (tokens?.access_token) {
+      setIsCheckingDuplicate(true)
+      const duplicateResult = await checkDuplicate(file, tokens.access_token)
+      setIsCheckingDuplicate(false)
+      
+      if (duplicateResult?.is_duplicate) {
+        setDuplicateInfo({
+          isDuplicate: true,
+          existingDocument: duplicateResult.existing_document
+        })
+      }
+    }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,19 +141,36 @@ export function UploadStep() {
 
   const handleUpload = async () => {
     if (!selectedFile || !tokens?.access_token) return
-
-    const result = await uploadDocument(selectedFile, formData, tokens.access_token)
     
-    if (result) {
-      setUploadSuccess(true)
-      setUploadedDocId(result.id)
-      setSelectedFile(null)
-      setFormData({ title: '', description: '', category: '', priority: 5 })
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+    // Prevent upload if duplicate is detected
+    if (duplicateInfo?.isDuplicate) {
+      alert('Cannot upload duplicate file. Please select a different file.')
+      return
+    }
+
+    try {
+      const result = await uploadDocument(selectedFile, formData, tokens.access_token)
+      
+      if (result) {
+        setUploadSuccess(true)
+        setUploadedDocId(result.id)
+        setSelectedFile(null)
+        setFormData({ title: '', description: '', category: '', priority: 5 })
+        setDuplicateInfo(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+        // Refresh documents list to show at upload step
+        await fetchDocuments(tokens.access_token, { step: 'upload' })
       }
-      // Refresh documents list to show at upload step
-      await fetchDocuments(tokens.access_token, { step: 'upload' })
+    } catch (error: any) {
+      if (error?.isDuplicate) {
+        setDuplicateInfo({
+          isDuplicate: true,
+          existingDocument: error.existingDocument
+        })
+      }
+      // The error will be handled by the store and displayed in the UI
     }
   }
 
@@ -251,17 +289,50 @@ export function UploadStep() {
             
             {selectedFile ? (
               <div className="space-y-3">
-                <div className="w-16 h-16 mx-auto bg-secondary-100 rounded-full flex items-center justify-center">
-                  <FileText className="w-8 h-8 text-secondary-600" />
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${
+                  duplicateInfo?.isDuplicate 
+                    ? 'bg-red-100' 
+                    : 'bg-secondary-100'
+                }`}>
+                  <FileText className={`w-8 h-8 ${
+                    duplicateInfo?.isDuplicate 
+                      ? 'text-red-600' 
+                      : 'text-secondary-600'
+                  }`} />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{selectedFile.name}</p>
+                  <p className={`font-medium ${
+                    duplicateInfo?.isDuplicate 
+                      ? 'text-red-900' 
+                      : 'text-gray-900'
+                  }`}>{selectedFile.name}</p>
                   <p className="text-sm text-gray-500">{formatFileSize(selectedFile.size)}</p>
+                  {isCheckingDuplicate && (
+                    <p className="text-sm text-blue-600 mt-1">Checking for duplicates...</p>
+                  )}
+                  {duplicateInfo?.isDuplicate && duplicateInfo.existingDocument && (
+                    <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                        <p className="text-sm font-medium text-red-800">Duplicate File Detected</p>
+                      </div>
+                      <p className="text-sm text-red-700 mb-2">
+                        This file already exists in the database:
+                      </p>
+                      <div className="text-xs text-red-600 space-y-1">
+                        <p><strong>Title:</strong> {duplicateInfo.existingDocument.title}</p>
+                        <p><strong>Filename:</strong> {duplicateInfo.existingDocument.original_filename}</p>
+                        <p><strong>Category:</strong> {duplicateInfo.existingDocument.category || 'Not specified'}</p>
+                        <p><strong>Uploaded on:</strong> {new Date(duplicateInfo.existingDocument.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     setSelectedFile(null)
+                    setDuplicateInfo(null)
                     if (fileInputRef.current) fileInputRef.current.value = ''
                   }}
                   className="text-sm text-red-600 hover:underline"
@@ -377,17 +448,25 @@ export function UploadStep() {
               {/* Upload Button */}
               <button
                 onClick={handleUpload}
-                disabled={isUploading}
+                disabled={isUploading || duplicateInfo?.isDuplicate}
                 className={`w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 ${
-                  isUploading
+                  isUploading || duplicateInfo?.isDuplicate
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : duplicateInfo?.isDuplicate
+                    ? 'bg-red-300 text-red-700 cursor-not-allowed'
                     : 'bg-primary-600 text-white hover:bg-primary-700'
                 }`}
+                title={duplicateInfo?.isDuplicate ? 'Cannot upload duplicate file' : undefined}
               >
                 {isUploading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Uploading...
+                  </>
+                ) : duplicateInfo?.isDuplicate ? (
+                  <>
+                    <AlertCircle size={20} />
+                    Duplicate File - Cannot Upload
                   </>
                 ) : (
                   <>
